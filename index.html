@@ -90,10 +90,14 @@
   input:focus,textarea:focus{border-color:var(--primary);}
   .input-suffix-row{position:relative;}
   .input-suffix{
-    position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);
+    position:absolute;right:14px;top:50%;transform:translateY(-50%);
     color:var(--gray-dim);font-size:13px;font-family:var(--font-en);pointer-events:none;
   }
-  .input-suffix-row input{padding-inline-start:52px;}
+  /* physical padding-right (not padding-inline-start): the number inputs
+     force direction:ltr on themselves, which flips what "inline-start"
+     means for them and used to push the padding to the wrong side,
+     letting typed digits sit under the كجم/ساعة suffix label. */
+  .input-suffix-row input{padding-right:52px;}
 
   .scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
   .scale button{
