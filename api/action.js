@@ -21,7 +21,7 @@ const { neon } = require('@neondatabase/serverless');
 
 const sql = neon(process.env.DATABASE_URL);
 
-const ADMIN_PASSWORD = 'Pex2026Coach!';
+const ADMIN_PASSWORD = 'Apex';
 
 function checkPassword(pw) {
   return !!ADMIN_PASSWORD && pw === ADMIN_PASSWORD;
