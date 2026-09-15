@@ -28,10 +28,9 @@ function checkPassword(pw) {
 }
 
 function genToken() {
-  return (
-    Math.random().toString(36).slice(2, 10) +
-    Math.random().toString(36).slice(2, 6)
-  );
+  // Short enough to keep the client link compact, still random enough that
+  // guessing another client's token isn't realistic at this app's scale.
+  return Math.random().toString(36).slice(2, 10);
 }
 
 // Monday-based ISO week id, e.g. "2026-W38"
@@ -79,6 +78,9 @@ async function submitCheckin(body) {
   ) {
     return { ok: false, error: 'missing_fields' };
   }
+  // Every submission is a brand-new row — like a Google Form response —
+  // never an update of a previous one, so the client's full history stays
+  // intact from their very first check-in to their latest.
   const weekId = isoWeek(new Date());
   await sql`
     INSERT INTO checkins
@@ -88,17 +90,6 @@ async function submitCheckin(body) {
       (${body.token}, ${weekId}, now(), ${body.weight}, ${body.sleepHours},
        ${body.energy}, ${body.diet}, ${body.steps ?? null},
        ${body.problems || ''}, ${body.notes || ''}, ${body.weekRating ?? null}, now())
-    ON CONFLICT (token, week_id) DO UPDATE SET
-      checkin_date = now(),
-      weight = EXCLUDED.weight,
-      sleep_hours = EXCLUDED.sleep_hours,
-      energy = EXCLUDED.energy,
-      diet = EXCLUDED.diet,
-      steps = EXCLUDED.steps,
-      problems = EXCLUDED.problems,
-      notes = EXCLUDED.notes,
-      week_rating = EXCLUDED.week_rating,
-      submitted_at = now()
   `;
   return { ok: true, weekId };
 }
@@ -115,6 +106,14 @@ async function getMyCheckin(token) {
   `;
   if (!rows.length) return { ok: true, exists: false, weekId };
   return Object.assign({ ok: true, exists: true, weekId }, rows[0]);
+}
+
+async function deleteClient(pw, token) {
+  if (!checkPassword(pw)) return { ok: false, error: 'unauthorized' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  await sql`DELETE FROM checkins WHERE token = ${token}`;
+  await sql`DELETE FROM clients WHERE token = ${token}`;
+  return { ok: true };
 }
 
 async function listCheckins(pw) {
@@ -157,6 +156,9 @@ module.exports = async (req, res) => {
         break;
       case 'addClient':
         out = await addClient(body.password, body.name);
+        break;
+      case 'deleteClient':
+        out = await deleteClient(body.password, body.token);
         break;
       case 'listCheckins':
         out = await listCheckins(body.password);
