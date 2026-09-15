@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PEX — المتابعة الأسبوعية</title>
+<title>APEX — المتابعة الأسبوعية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -191,6 +191,22 @@
   .delta-down{color:var(--accent);}
   .client-actions{display:flex;gap:8px;}
 
+  .checkin-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;margin-bottom:14px;
+  }
+  .checkin-card-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);
+  }
+  .detail-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:16px;
+    margin-bottom:16px;
+  }
+  .detail-item .num{font-family:var(--font-num);font-size:26px;line-height:1;color:var(--white);}
+  .detail-note{margin-bottom:14px;}
+  .detail-note p{color:var(--white);line-height:1.7;margin-top:4px;}
+
   table{width:100%;border-collapse:collapse;font-size:14px;}
   thead th{
     text-align:start;color:var(--gray-dim);font-weight:600;font-size:12px;
@@ -280,12 +296,19 @@ function fmtNum(n){
   return n;
 }
 
+function fmtDate(iso){
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('ar-EG-u-nu-latn', {day:'numeric', month:'short', year:'numeric'});
+}
+
 function showSetupNotice(){
   app.innerHTML = '';
   app.appendChild(el(`
     <div class="wrap center-screen">
       <div class="card stack" style="text-align:center;">
-        <img src="${LOGO_SRC}" alt="PEX" style="width:64px;margin:0 auto;">
+        <img src="${LOGO_SRC}" alt="APEX" style="width:64px;margin:0 auto;">
         <h2>الإعداد لسه مكملش</h2>
         <p>لازم تحط رابط الـ Google Apps Script Web App بتاعك جوه ملف الصفحة (متغير API_URL) الأول عشان الصفحة تشتغل.</p>
       </div>
@@ -298,10 +321,9 @@ async function renderClientView(token){
   app.innerHTML = '';
   app.appendChild(el(`<div class="wrap center-screen"><div class="spinner"></div></div>`));
 
-  let clientRes, checkinRes;
+  let clientRes;
   try{
     clientRes = await api('getClient', {token});
-    if (clientRes.ok) checkinRes = await api('getMyCheckin', {token});
   } catch(err){
     if (err && err.error === 'not_configured') return showSetupNotice();
     return renderConnectionError(() => renderClientView(token));
@@ -312,7 +334,7 @@ async function renderClientView(token){
     app.appendChild(el(`
       <div class="wrap center-screen">
         <div class="card stack" style="text-align:center;">
-          <img src="${LOGO_SRC}" alt="PEX" style="width:64px;margin:0 auto;">
+          <img src="${LOGO_SRC}" alt="APEX" style="width:64px;margin:0 auto;">
           <h2>اللينك مش شغال</h2>
           <p>الرابط ده مش معروف عندنا. تأكد إنك فاتح نفس اللينك اللي بعتهولك الكوتش، أو كلمه يبعتهولك تاني.</p>
         </div>
@@ -322,20 +344,23 @@ async function renderClientView(token){
   }
 
   const name = clientRes.name;
-  const existing = checkinRes && checkinRes.exists ? checkinRes : null;
+  // Every submit is a brand-new entry (like a Google Form response) — we
+  // never pre-fill or "update" a previous one, so there's no existing
+  // check-in to load here.
+  const existing = null;
 
   app.innerHTML = '';
   const wrap = el(`<div class="wrap"></div>`);
   wrap.appendChild(el(`
     <div class="brand">
-      <img src="${LOGO_SRC}" alt="PEX">
+      <img src="${LOGO_SRC}" alt="APEX">
       <div class="tag">weekly check-in</div>
     </div>
   `));
   wrap.appendChild(el(`
     <div class="stack-sm" style="margin-bottom:20px;text-align:center;">
       <h1>أهلاً ${name}</h1>
-      <p>متابعة الأسبوع (${weekRangeLabel()})</p>
+      <p>متابعة بتاريخ ${fmtDate(new Date().toISOString())}</p>
     </div>
   `));
 
@@ -395,8 +420,8 @@ async function renderClientView(token){
   // Notes
   form.appendChild(el(`
     <div class="stack-sm">
-      <div class="field-label">ملاحظات إضافية</div>
-      <textarea id="f-notes" required>${existing ? (existing.notes||'') : ''}</textarea>
+      <div class="field-label">ملاحظات إضافية <span class="field-hint">(اختياري)</span></div>
+      <textarea id="f-notes">${existing ? (existing.notes||'') : ''}</textarea>
     </div>
   `));
 
@@ -422,7 +447,7 @@ async function renderClientView(token){
     const notes = form.querySelector('#f-notes').value;
     const weekRating = form.querySelector('input[name="weekRating-val"]').value;
 
-    if (!weight || !sleepHours || !energy || !diet || !steps || !problems.trim() || !notes.trim() || !weekRating){
+    if (!weight || !sleepHours || !energy || !diet || !steps || !problems.trim() || !weekRating){
       errBox.textContent = 'من فضلك املأ كل الحقول قبل الإرسال.';
       errBox.hidden = false;
       return;
@@ -480,7 +505,7 @@ function renderClientSuccess(name, data){
   const wrap = el(`<div class="wrap"></div>`);
   wrap.appendChild(el(`
     <div class="brand">
-      <img src="${LOGO_SRC}" alt="PEX">
+      <img src="${LOGO_SRC}" alt="APEX">
     </div>
   `));
   const card = el(`
@@ -540,7 +565,7 @@ function renderAdminLogin(errMsg){
   const card = el(`
     <div class="card stack" style="width:100%;max-width:360px;">
       <div class="brand" style="margin:0 0 4px;">
-        <img src="${LOGO_SRC}" alt="PEX" style="width:64px;">
+        <img src="${LOGO_SRC}" alt="APEX" style="width:64px;">
       </div>
       <h2 style="text-align:center;">دخول الكوتش</h2>
       <input type="text" id="admin-pw" placeholder="كلمة السر" autocomplete="off" style="direction:ltr;text-align:center;">
@@ -612,7 +637,7 @@ async function renderAdminDashboard(pw){
 
   wrap.appendChild(el(`
     <div class="topbar">
-      <div class="brand"><img src="${LOGO_SRC}" alt="PEX"><h3>لوحة المتابعة</h3></div>
+      <div class="brand"><img src="${LOGO_SRC}" alt="APEX"><h3>لوحة المتابعة</h3></div>
       <button class="btn btn-outline btn-sm" id="logout-btn">خروج</button>
     </div>
   `));
@@ -643,7 +668,7 @@ async function renderAdminDashboard(pw){
       deltaHtml = `<span class="delta ${cls}">${sign}${d.toFixed(1)}</span>`;
     }
     const card = el(`
-      <div class="client-card">
+      <div class="client-card" style="cursor:pointer;">
         <div class="client-card-head">
           <h3>${c.name}</h3>
           <span class="pill ${hasThisWeek?'pill-done':'pill-pending'}">${hasThisWeek?'سجل الأسبوع ده':'لسه'}</span>
@@ -656,11 +681,22 @@ async function renderAdminDashboard(pw){
         <div class="sparkline"></div>
         <div class="client-actions">
           <button class="btn btn-outline btn-sm copy-link-btn" data-token="${c.token}">نسخ اللينك</button>
+          <button class="btn btn-outline btn-sm delete-client-btn" data-token="${c.token}" data-name="${c.name}" style="color:var(--danger);border-color:var(--danger);">حذف</button>
         </div>
       </div>
     `);
     card.querySelector('.sparkline').appendChild(buildSparkline(clientCheckins.map(k=>Number(k.weight)).filter(n=>!isNaN(n))));
-    card.querySelector('.copy-link-btn').addEventListener('click', (e) => copyClientLink(c.token, e.target));
+    card.querySelector('.copy-link-btn').addEventListener('click', (e) => { e.stopPropagation(); copyClientLink(c.token, e.target); });
+    card.querySelector('.delete-client-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      confirmDeleteClient(pw, c.token, c.name, () => renderAdminDashboard(pw));
+    });
+    card.addEventListener('click', () => {
+      const sel = wrap.querySelector('#client-filter');
+      if (sel) sel.value = c.token;
+      renderRows(c.token);
+      filterRow.scrollIntoView({behavior:'smooth', block:'start'});
+    });
     grid.appendChild(card);
   });
   wrap.appendChild(grid);
@@ -672,36 +708,81 @@ async function renderAdminDashboard(pw){
 
   const tableWrap = el(`<div class="table-wrap"><table>
     <thead><tr>
-      <th>العميل</th><th>الأسبوع</th><th>الوزن</th><th>النوم</th><th>الطاقة</th><th>الالتزام</th><th>الخطوات</th><th>ملاحظات / مشاكل</th>
+      <th>العميل</th><th>التاريخ</th><th>الوزن</th><th>النوم</th><th>الطاقة</th><th>الالتزام</th><th>الخطوات</th><th>ملاحظات / مشاكل</th>
     </tr></thead>
     <tbody id="checkins-tbody"></tbody>
   </table></div>`);
   wrap.appendChild(tableWrap);
 
+  const cardsWrap = el(`<div hidden></div>`);
+  wrap.appendChild(cardsWrap);
+
   function renderRows(filterToken){
-    const tbody = tableWrap.querySelector('#checkins-tbody');
-    tbody.innerHTML = '';
+    if (!filterToken){
+      // All clients: keep the compact table view.
+      tableWrap.hidden = false;
+      cardsWrap.hidden = true;
+      const tbody = tableWrap.querySelector('#checkins-tbody');
+      tbody.innerHTML = '';
+      const rows = checkins.slice().sort((a,b) => (b.submittedAt||'').localeCompare(a.submittedAt||''));
+      if (rows.length === 0){
+        tbody.appendChild(el(`<tr><td colspan="8" style="color:var(--gray-dim);">لا توجد متابعات بعد</td></tr>`));
+        return;
+      }
+      rows.forEach(k => {
+        const note = [k.problems, k.notes].filter(Boolean).join(' — ') || '—';
+        tbody.appendChild(el(`
+          <tr>
+            <td>${k.name}</td>
+            <td style="white-space:nowrap;">${fmtDate(k.submittedAt)}</td>
+            <td>${fmtNum(k.weight)}</td>
+            <td>${fmtNum(k.sleepHours)}</td>
+            <td>${fmtNum(k.energy)}/5</td>
+            <td>${fmtNum(k.diet)}/5</td>
+            <td>${fmtNum(k.steps)}</td>
+            <td style="white-space:normal;max-width:260px;">${note}</td>
+          </tr>
+        `));
+      });
+      return;
+    }
+
+    // One client selected: bigger, more detailed cards instead of a table.
+    tableWrap.hidden = true;
+    cardsWrap.hidden = false;
+    cardsWrap.innerHTML = '';
     const rows = checkins
-      .filter(k => !filterToken || k.token === filterToken)
+      .filter(k => k.token === filterToken)
       .sort((a,b) => (b.submittedAt||'').localeCompare(a.submittedAt||''));
     if (rows.length === 0){
-      tbody.appendChild(el(`<tr><td colspan="8" style="color:var(--gray-dim);">لا توجد متابعات بعد</td></tr>`));
+      cardsWrap.appendChild(el(`<p style="color:var(--gray-dim);">لا توجد متابعات بعد لهذا العميل.</p>`));
       return;
     }
     rows.forEach(k => {
-      const note = [k.problems, k.notes].filter(Boolean).join(' — ') || '—';
-      tbody.appendChild(el(`
-        <tr>
-          <td>${k.name}</td>
-          <td style="direction:ltr;text-align:right;">${k.weekId}</td>
-          <td>${fmtNum(k.weight)}</td>
-          <td>${fmtNum(k.sleepHours)}</td>
-          <td>${fmtNum(k.energy)}/5</td>
-          <td>${fmtNum(k.diet)}/5</td>
-          <td>${fmtNum(k.steps)}</td>
-          <td style="white-space:normal;max-width:260px;">${note}</td>
-        </tr>
-      `));
+      const clientCard = el(`
+        <div class="checkin-card">
+          <div class="checkin-card-head">
+            <h3>${fmtDate(k.submittedAt)}</h3>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="field-hint">الوزن</div><div class="num">${fmtNum(k.weight)} <span class="field-hint">كجم</span></div></div>
+            <div class="detail-item"><div class="field-hint">النوم</div><div class="num">${fmtNum(k.sleepHours)} <span class="field-hint">ساعة</span></div></div>
+            <div class="detail-item"><div class="field-hint">الطاقة</div><div class="num">${fmtNum(k.energy)}/5</div></div>
+            <div class="detail-item"><div class="field-hint">الالتزام</div><div class="num">${fmtNum(k.diet)}/5</div></div>
+            <div class="detail-item"><div class="field-hint">الخطوات</div><div class="num">${fmtNum(k.steps)}</div></div>
+            <div class="detail-item"><div class="field-hint">تقييم الأسبوع</div><div class="num">${fmtNum(k.weekRating)}/5</div></div>
+          </div>
+          <div class="detail-note">
+            <div class="field-label">مشاكل قابلته</div>
+            <p>${k.problems || '—'}</p>
+          </div>
+          <div class="detail-note">
+            <div class="field-label">ملاحظات إضافية</div>
+            <p>${k.notes || '—'}</p>
+          </div>
+        </div>
+      `);
+      cardsWrap.appendChild(clientCard);
     });
   }
   renderRows('');
@@ -752,6 +833,18 @@ function buildSparkline(values){
   dot.setAttribute('fill','#378ADD');
   svg.appendChild(dot);
   return svg;
+}
+
+async function confirmDeleteClient(pw, token, name, onDone){
+  const sure = confirm(`متأكد إنك عايز تمسح "${name}"؟ ده هيمسح كل متابعاته كمان، والخطوة دي مينفعش ترجع فيها.`);
+  if (!sure) return;
+  try{
+    const res = await api('deleteClient', {password: pw, token});
+    if (!res.ok) throw res;
+    onDone();
+  } catch(err){
+    alert('حصل خطأ، جرب تاني.');
+  }
 }
 
 async function copyClientLink(token, btn){
@@ -822,7 +915,7 @@ function openAddClientModal(pw, onDone){
   app.appendChild(el(`
     <div class="wrap center-screen">
       <div class="card stack" style="text-align:center;">
-        <img src="${LOGO_SRC}" alt="PEX" style="width:72px;margin:0 auto;">
+        <img src="${LOGO_SRC}" alt="APEX" style="width:72px;margin:0 auto;">
         <h2>لينك المتابعة الأسبوعية</h2>
         <p>لازم تفتح اللينك الخاص بيك اللي بعتهولك الكوتش. لو معندكش لينك، كلم الكوتش يبعتهولك.</p>
       </div>
