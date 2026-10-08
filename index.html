@@ -348,6 +348,11 @@ async function renderClientView(token){
   }
 
   const name = clientRes.name;
+
+  if (!clientRes.hasAssessment) {
+    return renderAssessmentView(token, name, clientRes.driveLink);
+  }
+
   // Every submit is a brand-new entry (like a Google Form response) — we
   // never pre-fill or "update" a previous one, so there's no existing
   // check-in to load here.
@@ -372,6 +377,17 @@ async function renderClientView(token){
 
   if (existing){
     form.appendChild(el(`<div class="field-hint" style="color:var(--accent);">لقينا متابعة مسجلة للأسبوع ده — تقدر تعدّلها وتبعتها تاني.</div>`));
+  }
+
+  // Body pictures reminder (same per-client Drive folder link as the first
+  // check-in — just a reminder here, not a new field to fill in).
+  if (clientRes.driveLink){
+    form.appendChild(el(`
+      <div class="stack-sm" style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div class="field-label" dir="ltr" style="text-align:right;">body pictures</div>
+        <a href="${clientRes.driveLink}" target="_blank" rel="noopener" style="word-break:break-all;">${clientRes.driveLink}</a>
+      </div>
+    `));
   }
 
   // Weight
@@ -478,6 +494,259 @@ async function renderClientView(token){
   app.appendChild(wrap);
 }
 
+/* ======================= FIRST CHECK-IN (ASSESSMENT) ======================= */
+async function renderAssessmentView(token, name, driveLink){
+  app.innerHTML = '';
+  const wrap = el(`<div class="wrap"></div>`);
+  wrap.appendChild(el(`
+    <div class="brand">
+      <img src="${LOGO_SRC}" alt="APEX">
+      <div class="tag">أول تقييم</div>
+    </div>
+  `));
+  wrap.appendChild(el(`
+    <div class="stack-sm" style="margin-bottom:20px;text-align:center;">
+      <h1>أهلاً ${name}</h1>
+      <p>قبل ما نبدأ المتابعة الأسبوعية، محتاجين نعرف بياناتك الأول — هتتملى مرة واحدة بس.</p>
+    </div>
+  `));
+
+  const form = el(`<form class="card stack"></form>`);
+
+  // Drive link notice (replaces file-upload fields — Inbody + before photos)
+  form.appendChild(el(`
+    <div class="stack-sm" style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+      <div class="field-label" dir="ltr" style="text-align:right;">front/back/side pictures</div>
+      ${driveLink
+        ? `<a href="${driveLink}" target="_blank" rel="noopener" style="word-break:break-all;">${driveLink}</a>`
+        : `<p>الكوتش هيبعتلك لينك فولدر على الدرايف عشان ترفع عليه نتيجة الـ Inbody وصور الجسم — ممكن تكمل باقي البيانات دلوقتي.</p>`}
+    </div>
+  `));
+
+  // Full name
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">الاسم بالكامل</div>
+      <input type="text" id="a-fullname" required value="${name || ''}">
+    </div>
+  `));
+
+  // Job
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">الوظيفة</div>
+      <input type="text" id="a-job" required>
+    </div>
+  `));
+
+  // Age
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">العمر</div>
+      <input type="number" inputmode="numeric" step="1" min="10" max="100" id="a-age" required>
+    </div>
+  `));
+
+  // Height
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">الطول</div>
+      <div class="input-suffix-row">
+        <span class="input-suffix">سم</span>
+        <input type="number" inputmode="decimal" step="0.1" min="100" max="250" id="a-height" required>
+      </div>
+    </div>
+  `));
+
+  // Weight
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">الوزن الحالي</div>
+      <div class="input-suffix-row">
+        <span class="input-suffix">كجم</span>
+        <input type="number" inputmode="decimal" step="0.1" min="20" max="400" id="a-weight" required>
+      </div>
+    </div>
+  `));
+
+  // Medical history
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">تاريخ مرضي / إصابات</div>
+      <textarea id="a-medical" required></textarea>
+    </div>
+  `));
+
+  // Goal
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">هدفك من البرنامج</div>
+      <textarea id="a-goal" required></textarea>
+    </div>
+  `));
+
+  // Training days/week
+  form.appendChild(buildNumberScale('trainingDays', 'هتتمرن كام يوم في الأسبوع؟', 5, null));
+
+  // Supplements
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">مكملات غذائية متاحة؟</div>
+      <textarea id="a-supplements" required></textarea>
+    </div>
+  `));
+
+  // Favorite foods
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">أكلك المفضل</div>
+      <textarea id="a-favfoods" required></textarea>
+    </div>
+  `));
+
+  // Disliked foods
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">أكل مش بتحبه</div>
+      <textarea id="a-dislikefoods" required></textarea>
+    </div>
+  `));
+
+  // Steps
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">متوسط عدد الخطوات اليومي</div>
+      <input type="number" inputmode="numeric" step="100" min="0" id="a-steps" required>
+    </div>
+  `));
+
+  // Meals per day
+  form.appendChild(buildNumberScale('mealsPerDay', 'بتاكل كام وجبة في اليوم؟', 5, null));
+
+  // Sleep hours
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">متوسط ساعات النوم يوميًا</div>
+      <div class="input-suffix-row">
+        <span class="input-suffix">ساعة</span>
+        <input type="number" inputmode="decimal" step="0.5" min="0" max="16" id="a-sleep" required>
+      </div>
+    </div>
+  `));
+
+  // Trained before
+  form.appendChild(el(`
+    <div class="stack-sm">
+      <div class="field-label">اتمرنت قبل كده؟</div>
+      <textarea id="a-trainedbefore" required></textarea>
+    </div>
+  `));
+
+  const errBox = el(`<div class="error-text" hidden></div>`);
+  form.appendChild(errBox);
+
+  const submitBtn = el(`<button type="submit" class="btn">إرسال البيانات</button>`);
+  form.appendChild(submitBtn);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.hidden = true;
+
+    const fullName = form.querySelector('#a-fullname').value.trim();
+    const job = form.querySelector('#a-job').value.trim();
+    const age = form.querySelector('#a-age').value;
+    const heightCm = form.querySelector('#a-height').value;
+    const weightKg = form.querySelector('#a-weight').value;
+    const medicalHistory = form.querySelector('#a-medical').value.trim();
+    const goal = form.querySelector('#a-goal').value.trim();
+    const trainingDays = form.querySelector('input[name="trainingDays-val"]').value;
+    const supplements = form.querySelector('#a-supplements').value.trim();
+    const favoriteFoods = form.querySelector('#a-favfoods').value.trim();
+    const dislikedFoods = form.querySelector('#a-dislikefoods').value.trim();
+    const stepsPerDay = form.querySelector('#a-steps').value;
+    const mealsPerDay = form.querySelector('input[name="mealsPerDay-val"]').value;
+    const sleepHours = form.querySelector('#a-sleep').value;
+    const trainedBefore = form.querySelector('#a-trainedbefore').value.trim();
+
+    if (!fullName || !job || !age || !heightCm || !weightKg || !medicalHistory || !goal ||
+        !trainingDays || !supplements || !favoriteFoods || !dislikedFoods || !stepsPerDay ||
+        !mealsPerDay || !sleepHours || !trainedBefore){
+      errBox.textContent = 'من فضلك املأ كل الحقول قبل الإرسال.';
+      errBox.hidden = false;
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جاري الإرسال...';
+    try{
+      const res = await api('submitAssessment', {
+        token, fullName, job, age: Number(age), heightCm: Number(heightCm),
+        weightKg: Number(weightKg), medicalHistory, goal,
+        trainingDays: Number(trainingDays), supplements, favoriteFoods,
+        dislikedFoods, stepsPerDay: Number(stepsPerDay),
+        mealsPerDay: Number(mealsPerDay), sleepHours: Number(sleepHours), trainedBefore,
+      });
+      if (!res.ok) throw res;
+      // Submission done — show a thank-you screen and stop here. The
+      // weekly check-in form only appears the next time this link is
+      // opened (handled by getClient's hasAssessment check).
+      renderAssessmentSuccess(name);
+    } catch(err){
+      errBox.textContent = 'حصل خطأ في الإرسال. جرب تاني.';
+      errBox.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'إرسال البيانات';
+    }
+  });
+
+  wrap.appendChild(form);
+  app.appendChild(wrap);
+}
+
+function renderAssessmentSuccess(name){
+  app.innerHTML = '';
+  const wrap = el(`<div class="wrap"></div>`);
+  wrap.appendChild(el(`
+    <div class="brand">
+      <img src="${LOGO_SRC}" alt="APEX">
+    </div>
+  `));
+  wrap.appendChild(el(`
+    <div class="card stack" style="text-align:center;">
+      <div class="success-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M4 12.5L9.5 18L20 6" stroke="#2FD6C6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>شكرًا يا ${name}</h2>
+      <p>استلمنا بياناتك. افتح نفس اللينك تاني الأسبوع الجاي عشان تبدأ متابعتك الأسبوعية.</p>
+    </div>
+  `));
+  app.appendChild(wrap);
+}
+
+function buildNumberScale(name, label, max, initial){
+  const wrapper = el(`
+    <div class="stack-sm">
+      <div class="field-label">${label}</div>
+      <div class="scale" data-scale="${name}" style="grid-template-columns:repeat(${max},1fr);"></div>
+      <input type="hidden" name="${name}-val" value="${initial || ''}">
+    </div>
+  `);
+  const scaleEl = wrapper.querySelector('.scale');
+  const hidden = wrapper.querySelector(`input[name="${name}-val"]`);
+  for (let i=1;i<=max;i++){
+    const b = el(`<button type="button">${i}</button>`);
+    if (initial && Number(initial) === i){ b.classList.add('active'); }
+    b.addEventListener('click', () => {
+      scaleEl.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      hidden.value = i;
+    });
+    scaleEl.appendChild(b);
+  }
+  return wrapper;
+}
+
 function buildScale(name, label, labels, initial){
   const wrapper = el(`
     <div class="stack-sm">
@@ -549,9 +818,9 @@ function renderConnectionError(retry){
 }
 
 /* ======================= ADMIN VIEW ======================= */
-function getAdminPassword(){ return sessionStorage.getItem('pex_admin_pw') || ''; }
-function setAdminPassword(pw){ sessionStorage.setItem('pex_admin_pw', pw); }
-function clearAdminPassword(){ sessionStorage.removeItem('pex_admin_pw'); }
+function getAdminPassword(){ return sessionStorage.getItem('apex_admin_pw') || ''; }
+function setAdminPassword(pw){ sessionStorage.setItem('apex_admin_pw', pw); }
+function clearAdminPassword(){ sessionStorage.removeItem('apex_admin_pw'); }
 
 async function renderAdminView(){
   const savedPw = getAdminPassword();
@@ -685,12 +954,17 @@ async function renderAdminDashboard(pw){
         <div class="sparkline"></div>
         <div class="client-actions">
           <button class="btn btn-outline btn-sm copy-link-btn" data-token="${c.token}">نسخ اللينك</button>
+          <button class="btn btn-outline btn-sm drive-link-btn" data-token="${c.token}" data-name="${c.name}">${c.driveLink ? 'تعديل لينك الدرايف' : '+ لينك الدرايف'}</button>
           <button class="btn btn-outline btn-sm delete-client-btn" data-token="${c.token}" data-name="${c.name}" style="color:var(--danger);border-color:var(--danger);">حذف</button>
         </div>
       </div>
     `);
     card.querySelector('.sparkline').appendChild(buildSparkline(clientCheckins.map(k=>Number(k.weight)).filter(n=>!isNaN(n))));
     card.querySelector('.copy-link-btn').addEventListener('click', (e) => { e.stopPropagation(); copyClientLink(c.token, e.target); });
+    card.querySelector('.drive-link-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditDriveLinkModal(pw, c.token, c.name, c.driveLink || '', () => renderAdminDashboard(pw));
+    });
     card.querySelector('.delete-client-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       confirmDeleteClient(pw, c.token, c.name, () => renderAdminDashboard(pw));
@@ -718,10 +992,48 @@ async function renderAdminDashboard(pw){
   </table></div>`);
   wrap.appendChild(tableWrap);
 
+  const assessmentWrap = el(`<div hidden style="margin-bottom:16px;"></div>`);
+  wrap.appendChild(assessmentWrap);
+
   const cardsWrap = el(`<div hidden></div>`);
   wrap.appendChild(cardsWrap);
 
+  async function renderAssessment(filterToken){
+    assessmentWrap.hidden = true;
+    assessmentWrap.innerHTML = '';
+    if (!filterToken) return;
+    let res;
+    try{ res = await api('getClientAssessment', {password: pw, token: filterToken}); }
+    catch(err){ return; }
+    if (!res.ok || !res.exists) return;
+    const a = res;
+    assessmentWrap.hidden = false;
+    assessmentWrap.appendChild(el(`
+      <div class="checkin-card">
+        <div class="checkin-card-head"><h3>بيانات أول تقييم</h3></div>
+        <div class="detail-grid">
+          <div class="detail-item"><div class="field-hint">الاسم بالكامل</div><div class="num">${a.fullName || '—'}</div></div>
+          <div class="detail-item"><div class="field-hint">الوظيفة</div><div class="num">${a.job || '—'}</div></div>
+          <div class="detail-item"><div class="field-hint">العمر</div><div class="num">${fmtNum(a.age)}</div></div>
+          <div class="detail-item"><div class="field-hint">الطول</div><div class="num">${fmtNum(a.heightCm)} <span class="field-hint">سم</span></div></div>
+          <div class="detail-item"><div class="field-hint">الوزن وقت التقييم</div><div class="num">${fmtNum(a.weightKg)} <span class="field-hint">كجم</span></div></div>
+          <div class="detail-item"><div class="field-hint">أيام التمرين/أسبوع</div><div class="num">${fmtNum(a.trainingDays)}</div></div>
+          <div class="detail-item"><div class="field-hint">وجبات/يوم</div><div class="num">${fmtNum(a.mealsPerDay)}</div></div>
+          <div class="detail-item"><div class="field-hint">ساعات النوم</div><div class="num">${fmtNum(a.sleepHours)}</div></div>
+          <div class="detail-item"><div class="field-hint">خطوات/يوم</div><div class="num">${fmtNum(a.stepsPerDay)}</div></div>
+        </div>
+        <div class="detail-note"><div class="field-label">تاريخ مرضي / إصابات</div><p>${a.medicalHistory || '—'}</p></div>
+        <div class="detail-note"><div class="field-label">الهدف من البرنامج</div><p>${a.goal || '—'}</p></div>
+        <div class="detail-note"><div class="field-label">مكملات غذائية</div><p>${a.supplements || '—'}</p></div>
+        <div class="detail-note"><div class="field-label">أكل مفضل</div><p>${a.favoriteFoods || '—'}</p></div>
+        <div class="detail-note"><div class="field-label">أكل مش بيحبه</div><p>${a.dislikedFoods || '—'}</p></div>
+        <div class="detail-note"><div class="field-label">اتمرن قبل كده؟</div><p>${a.trainedBefore || '—'}</p></div>
+      </div>
+    `));
+  }
+
   function renderRows(filterToken){
+    renderAssessment(filterToken);
     if (!filterToken){
       // All clients: keep the compact table view.
       tableWrap.hidden = false;
@@ -869,6 +1181,7 @@ function openAddClientModal(pw, onDone){
       <div class="modal stack">
         <h3>إضافة عميل جديد</h3>
         <input type="text" id="new-client-name" placeholder="اسم العميل">
+        <input type="text" id="new-client-drive" placeholder="لينك فولدر الدرايف بتاعه (اختياري)" style="direction:ltr;text-align:right;">
         <div class="error-text" id="new-client-err" hidden></div>
         <div id="new-client-result" hidden></div>
         <div style="display:flex;gap:8px;">
@@ -882,16 +1195,19 @@ function openAddClientModal(pw, onDone){
   backdrop.querySelector('#new-client-cancel').addEventListener('click', () => { backdrop.remove(); onDone(); });
   backdrop.querySelector('#new-client-save').addEventListener('click', async () => {
     const nameInput = backdrop.querySelector('#new-client-name');
+    const driveInput = backdrop.querySelector('#new-client-drive');
     const errBox = backdrop.querySelector('#new-client-err');
     const resultBox = backdrop.querySelector('#new-client-result');
     const name = nameInput.value.trim();
+    const driveLink = driveInput.value.trim();
     if (!name){ errBox.textContent = 'اكتب اسم العميل.'; errBox.hidden = false; return; }
     errBox.hidden = true;
     try{
-      const res = await api('addClient', {password: pw, name});
+      const res = await api('addClient', {password: pw, name, driveLink});
       if (!res.ok) throw res;
       const url = `${location.origin}${location.pathname}?c=${res.token}`;
       nameInput.hidden = true;
+      driveInput.hidden = true;
       backdrop.querySelector('#new-client-save').hidden = true;
       resultBox.hidden = false;
       resultBox.innerHTML = `
@@ -904,6 +1220,38 @@ function openAddClientModal(pw, onDone){
         catch(err){ prompt('انسخ اللينك:', url); }
       });
       backdrop.querySelector('#new-client-cancel').textContent = 'تم، رجوع للوحة';
+    } catch(err){
+      errBox.textContent = 'حصل خطأ، جرب تاني.'; errBox.hidden = false;
+    }
+  });
+}
+
+function openEditDriveLinkModal(pw, token, name, currentLink, onDone){
+  const backdrop = el(`
+    <div class="modal-backdrop">
+      <div class="modal stack">
+        <h3>لينك فولدر الدرايف — ${name}</h3>
+        <input type="text" id="drive-link-input" placeholder="https://drive.google.com/..." value="${currentLink || ''}" style="direction:ltr;text-align:right;">
+        <div class="error-text" id="drive-link-err" hidden></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="drive-link-save">حفظ</button>
+          <button class="btn btn-outline" id="drive-link-cancel" style="width:auto;">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('#drive-link-cancel').addEventListener('click', () => { backdrop.remove(); });
+  backdrop.querySelector('#drive-link-save').addEventListener('click', async () => {
+    const input = backdrop.querySelector('#drive-link-input');
+    const errBox = backdrop.querySelector('#drive-link-err');
+    const driveLink = input.value.trim();
+    errBox.hidden = true;
+    try{
+      const res = await api('updateClientDriveLink', {password: pw, token, driveLink});
+      if (!res.ok) throw res;
+      backdrop.remove();
+      onDone();
     } catch(err){
       errBox.textContent = 'حصل خطأ، جرب تاني.'; errBox.hidden = false;
     }
