@@ -1030,6 +1030,31 @@ async function renderAdminDashboard(pw){
         <div class="detail-note"><div class="field-label">اتمرن قبل كده؟</div><p>${a.trainedBefore || '—'}</p></div>
       </div>
     `));
+
+    // Weight comparison: assessment weight vs the client's first weekly check-in weight.
+    const firstCheckin = checkins
+      .filter(k => k.token === filterToken)
+      .sort((x,y) => (x.weekId||'').localeCompare(y.weekId||'') || (x.submittedAt||'').localeCompare(y.submittedAt||''))[0];
+
+    if (firstCheckin && firstCheckin.weight !== '' && firstCheckin.weight != null && a.weightKg != null && a.weightKg !== ''){
+      const w1 = Number(a.weightKg), w2 = Number(firstCheckin.weight);
+      const d = w2 - w1;
+      const cls = d <= 0 ? 'delta-down' : 'delta-up';
+      const sign = d > 0 ? '+' : '';
+      const compareCard = el(`
+        <div class="checkin-card" style="margin-top:12px;">
+          <div class="checkin-card-head"><h3>مقارنة الوزن: أول تقييم ← أول أسبوع متابعة</h3></div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="field-hint">وقت التقييم</div><div class="num">${fmtNum(w1)} <span class="field-hint">كجم</span></div></div>
+            <div class="detail-item"><div class="field-hint">أول أسبوع متابعة</div><div class="num">${fmtNum(w2)} <span class="field-hint">كجم</span></div></div>
+            <div class="detail-item"><div class="field-hint">الفرق</div><div class="num"><span class="delta ${cls}">${sign}${d.toFixed(1)}</span> <span class="field-hint">كجم</span></div></div>
+          </div>
+          <div class="sparkline" style="margin-top:8px;max-width:180px;"></div>
+        </div>
+      `);
+      compareCard.querySelector('.sparkline').appendChild(buildSparkline([w1, w2]));
+      assessmentWrap.appendChild(compareCard);
+    }
   }
 
   function renderRows(filterToken){
