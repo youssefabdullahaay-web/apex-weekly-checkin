@@ -181,6 +181,7 @@ async function getMyCheckin(token) {
 async function deleteClient(pw, token) {
   if (!checkPassword(pw)) return { ok: false, error: 'unauthorized' };
   if (!token) return { ok: false, error: 'invalid_token' };
+  await sql`DELETE FROM assessments WHERE token = ${token}`;
   await sql`DELETE FROM checkins WHERE token = ${token}`;
   await sql`DELETE FROM clients WHERE token = ${token}`;
   return { ok: true };
